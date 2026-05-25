@@ -1,0 +1,16 @@
+services:
+  contextforge:
+    container_name: contextforge
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8797:8787"
+    environment:
+      REPORT_ROOT: /data/report
+      WIKI_ROOT: /data/wiki
+      PORT: "8787"
+    volumes:
+      - ./workspace/report:/data/report
+      - ./workspace/wiki:/data/wiki:ro
+    restart: "no"

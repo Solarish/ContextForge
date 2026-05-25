@@ -1,0 +1,48 @@
+{
+  "_stamp": "[Updated by: codex | Time: 2026-05-25 08:54:27 +0700]",
+  "data": [
+    {
+      "taskType": "architecture",
+      "required": [
+        "README.md",
+        "reports/system-overview.md"
+      ],
+      "wikiConcepts": [
+        "System Overview"
+      ],
+      "optionalGlobs": [
+        "architecture/"
+      ]
+    },
+    {
+      "taskType": "issue_update",
+      "required": [
+        "README.md",
+        "registry/issues.json"
+      ],
+      "wikiConcepts": [
+        "Project Issues"
+      ],
+      "optionalGlobs": [
+        "reports/",
+        "checkpoints/"
+      ]
+    },
+    {
+      "taskType": "mindmap_create",
+      "required": [
+        "README.md",
+        "registry/sources.json"
+      ],
+      "wikiConcepts": [
+        "System Overview",
+        "Project Issues"
+      ],
+      "optionalGlobs": [
+        "maps/",
+        "architecture/"
+      ]
+    }
+  ]
+}
+
