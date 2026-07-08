@@ -1,0 +1,57 @@
+{
+  "_stamp": "[Updated by: claude | Time: 2026-07-08 14:25:00 +0700]",
+  "_note": "Generic sample registry for the ContextForge orchestrator layer. Rename agent ids to your real CLI agents, set absolute runnerPath values under an allowed root (e.g. gateway/scripts/runners/), and only enable an agent once its runner is executable. See docs/06-orchestrator.md.",
+  "data": {
+    "version": 1,
+    "agents": {
+      "agent_lead": {
+        "runnerPath": "<ABS_PATH>/gateway/scripts/runners/agent_lead-runner.sh",
+        "capabilities": ["lead", "worker", "coordinator"],
+        "concurrencyLimit": 1,
+        "enabled": true,
+        "killSignal": "SIGTERM",
+        "killGraceMs": 5000,
+        "notify": ["needs_decision", "failure"],
+        "model": "<model-id>",
+        "description": "Primary lead agent — plans, routes work, reviews worker output."
+      },
+      "agent_worker": {
+        "runnerPath": "<ABS_PATH>/gateway/scripts/runners/agent_worker-runner.sh",
+        "capabilities": ["worker"],
+        "concurrencyLimit": 1,
+        "enabled": true,
+        "killSignal": "SIGTERM",
+        "killGraceMs": 5000,
+        "notify": ["failure"],
+        "model": "<model-id>",
+        "description": "Execution worker — implements according to the lead's plan."
+      },
+      "agent_flex": {
+        "runnerPath": "<ABS_PATH>/gateway/scripts/runners/agent_flex-runner.sh",
+        "capabilities": ["lead", "worker"],
+        "concurrencyLimit": 2,
+        "enabled": true,
+        "killSignal": "SIGTERM",
+        "killGraceMs": 5000,
+        "notify": ["needs_decision", "failure"],
+        "model": "<model-id>",
+        "description": "Flexible agent — takes lead or worker per-session via session_claim_role."
+      },
+      "task_bot": {
+        "runnerPath": "<ABS_PATH>/gateway/scripts/runners/task_bot-runner.sh",
+        "capabilities": ["worker"],
+        "concurrencyLimit": 1,
+        "enabled": false,
+        "killSignal": "SIGTERM",
+        "killGraceMs": 5000,
+        "notify": ["failure"],
+        "model": "<runtime-or-model>",
+        "description": "Example special-purpose worker (disabled by default). Enable only after its runner is verified."
+      }
+    },
+    "notifications": {
+      "macOs": true,
+      "terminalBell": false
+    }
+  }
+}

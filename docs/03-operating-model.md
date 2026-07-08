@@ -1,6 +1,6 @@
 # Operating Model
 
-[Updated by: codex | Time: 2026-05-25 08:54:27 +0700]
+[Updated by: claude | Time: 2026-07-08 14:25:00 +0700]
 
 ## Roles
 
@@ -24,8 +24,9 @@ Gateway:
 - Indexing.
 - Context gates.
 - MCP tools.
-- Dashboard.
+- Dashboards (context + orchestrator).
 - Artifact creation.
+- Agent dispatch + kill switches (orchestration layer).
 
 Agent:
 
@@ -34,6 +35,7 @@ Agent:
 - Call `validate_context`.
 - Stop if blocked or conflict appears.
 - Write canonical updates back to Report.
+- (Multi-agent) claim a role, then hand off through the session channel.
 
 ## Task Gates
 
@@ -53,6 +55,49 @@ Each task type should define:
 - optional source folders
 - conflict behavior
 
+## Multi-Agent Roles (self-declared)
+
+The orchestration layer routes work by the role each agent **claims for itself**, not by a
+fixed assignment. An agent claims a role on a session (`session_claim_role`), and the
+router prefers the session's `participants` map over any session-level default.
+
+- `lead` — plans, routes work, reviews the worker's output.
+- `worker` — executes according to the plan.
+- `coordinator` — the human decision-maker; not an automated role.
+
+An agent may only claim a role its registry `capabilities` allow. Claiming a role it lacks
+is a **permanent** dispatch failure (`lacks capability`), not a retry.
+
+## Session Channel (round-by-round handoff)
+
+The session channel is the **only** place for routine round-by-round updates between agents.
+Do **not** use `reports/`, `checkpoints/`, or `best-practices/` for status pings.
+
+Each round is a card with a `status`:
+
+- `in_progress` — starting/continuing work (include `summary` + `nextAction`).
+- `blocked` / `needs_decision` — include `blockers` and a `decisionRequest`; the router
+  pauses and waits for a human.
+- `done` — include `summary`, `artifactLinks`, and the `nextAction` for whoever is next.
+
+Cards are a coordination board, **not proof of execution**. Before trusting a result,
+verify the referenced code, command output, logs, or durable artifact.
+
+Reserve `checkpoints/` for durable pause/handoff outside the active session flow, and
+`best-practices/` for canonical knowledge worth keeping permanently. Record user decisions
+with `session_decide` so they become first-class artifacts.
+
+## Kill Switch Discipline
+
+The human always keeps control of running agents through the orchestrator:
+
+- **Pause** stops new spawns; running ones finish.
+- **Session / Agent kill** stops a specific run and clears its lock.
+- **Hard stop** kills everything, flushes locks, and flips the system to dry-run.
+
+Any run that spends real money or touches paid infrastructure must end with an **explicit
+cleanup step and a verification check** — never leave a paid run silently alive.
+
 ## Drift Policy
 
 If Wiki and Report disagree:
@@ -62,6 +107,16 @@ If Wiki and Report disagree:
 3. Use Report as canonical unless the user explicitly changes the source of truth.
 4. Update Wiki only after Report is corrected.
 
+## Env Control Plane
+
+Environment variables are managed through the gateway, not edited ad hoc, so every change
+is validated and audited:
+
+1. **No raw secrets** ever leave the gateway — surface presence and metadata only.
+2. Read with `env_list` / `env_get`; mutate only with `env_set` / `env_sync`.
+3. Protected/critical secrets require an explicit reason to sync to a remote source.
+4. Run `env_audit` to detect drift between sources; protected deletes are blocked by policy.
+
 ## Stamp Policy
 
 Every generated or updated report should include:
@@ -69,4 +124,3 @@ Every generated or updated report should include:
 ```text
 [Updated by: <agent> | Time: YYYY-MM-DD HH:MM:SS +0700]
 ```
-
