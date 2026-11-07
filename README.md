@@ -34,6 +34,8 @@ Open `http://127.0.0.1:8787/`. The HTTP service binds to loopback by default. To
 
 Reports accept `summary`, `table`, `chart`, or `timeline` sections with source references. The server escapes all supplied text and supplies filtering and table sorting. It does not accept agent-authored HTML or JavaScript. Browser URLs use `/reports/{projectId}/{reportId}`. MCP clients can read the matching `ui://contextforge/reports/{projectId}/{reportId}` resource. Legacy HTML roots appear in the catalog as linked history.
 
+For MCP Apps hosts, `report_create` and `report_get` link to a `ui://contextforge/report-viewer` app. Model-facing results stay short; the View loads full report data through the app-only `report_data` tool.
+
 The server's state root contains indexes and report snapshots. Back it up if reports must survive machine loss. Context and report files are not uploaded by this project.
 
 See `templates/AGENTS.md` for shared agent rules and `docs/02-architecture.md` for the data flow.

@@ -47,9 +47,14 @@ function render(report: Report, url: string) {
   const refs = element("section"); refs.append(element("h2", "Sources"));
   const list = element("ul"); for (const ref of report.sourceRefs ?? []) list.append(element("li", ref)); refs.append(list); root.append(refs);
 }
-app.ontoolresult = params => {
-  const data = params.structuredContent as { report?: Report; url?: string } | undefined;
-  if (data?.report && data.url) render(data.report, data.url);
-  else root.textContent = "Open the permanent report URL in the tool result.";
+app.ontoolresult = async params => {
+  const meta = params.structuredContent as { projectId?: string; id?: string; url?: string } | undefined;
+  if (!meta?.projectId || !meta.id) { root.textContent = "Open the permanent report URL in the tool result."; return; }
+  try {
+    const result = await app.callServerTool({ name: "report_data", arguments: { projectId: meta.projectId, id: meta.id } });
+    const data = result.structuredContent as { report?: Report; url?: string } | undefined;
+    if (data?.report && data.url) render(data.report, data.url);
+    else root.textContent = "Report data unavailable; use the browser URL.";
+  } catch { root.textContent = "Report data unavailable; use the browser URL."; }
 };
 void app.connect();
