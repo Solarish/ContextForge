@@ -34,6 +34,7 @@ test("project isolation, compact context, incremental refresh, and immutable saf
     assert.match((await contextRead({ projectId: "alpha", sourceId: "report:README.md", heading: "Facts" })).text, /alpha text/);
     await assert.rejects(contextRead({ projectId: "alpha", sourceId: "report:../beta/report/README.md" }));
     const report = await createReport({ projectId: "alpha", title: "<script>alert(1)</script>", kind: "table", sections: [{ heading: "Results", columns: ["Name"], rows: [["<img src=x onerror=alert(1)>"]] }], sourceRefs: ["report:README.md"] });
+    await assert.rejects(createReport({ projectId: "alpha", title: "Injected", kind: "summary", sections: [{ heading: "h", html: "<script>alert(1)</script>" }], sourceRefs: ["report:README.md"] } as unknown as Parameters<typeof createReport>[0]));
     const html = await getReportHtml("alpha", report.id);
     assert.ok(html.includes("&lt;script&gt;"));
     assert.ok(html.includes("&lt;img"));

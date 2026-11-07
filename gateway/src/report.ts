@@ -6,11 +6,25 @@ import { getProject } from "./projects.js";
 import { loadIndex } from "./indexer.js";
 import { listMarkdown } from "./fs-utils.js";
 import type { ReportInput, ReportSection } from "./types.js";
+import { z } from "zod";
 
 const escapeHtml = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]!));
 const directory = (projectId: string) => path.join(getConfig().stateRoot, "reports", projectId);
 const reportUrl = (projectId: string, id: string) => `${getConfig().publicBaseUrl}/reports/${projectId}/${id}`;
 const idOk = (id: string) => /^[a-f0-9-]{36}$/.test(id);
+const reportSchema = z.strictObject({
+  projectId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/),
+  title: z.string().trim().min(1).max(300),
+  kind: z.enum(["summary","table","chart","timeline"]),
+  sourceRefs: z.array(z.string().min(1).max(500)).min(1).max(100),
+  sections: z.array(z.strictObject({
+    heading: z.string().min(1).max(200), text: z.string().max(10000).optional(),
+    columns: z.array(z.string().max(200)).max(50).optional(),
+    rows: z.array(z.array(z.union([z.string().max(10000),z.number().finite(),z.null()])).max(50)).max(500).optional(),
+    chart: z.strictObject({ labels:z.array(z.string().max(200)).max(100), values:z.array(z.number().finite()).max(100) }).optional(),
+    events: z.array(z.strictObject({at:z.string().max(200),label:z.string().max(500),detail:z.string().max(10000).optional()})).max(500).optional()
+  })).min(1).max(40)
+});
 function renderSection(s: ReportSection): string {
   const text = s.text ? `<p>${escapeHtml(s.text)}</p>` : "";
   const table = s.columns && s.rows ? `<div class="table-wrap"><table><thead><tr>${s.columns.map(c => `<th scope="col">${escapeHtml(c)}</th>`).join("")}</tr></thead><tbody>${s.rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : "";
@@ -22,6 +36,7 @@ function render(record: ReportInput & { id: string; createdAt: string }): string
   return `<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(record.title)}</title><style>body{margin:0;background:#0b1220;color:#eef3fb;font:15px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:28px 20px 70px}h1{font-size:clamp(26px,4vw,42px);line-height:1.2}h2{font-size:21px}small{color:#aebdd1}.card{background:#17243a;border:1px solid #33445e;padding:20px;margin:16px 0;border-radius:14px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid #3d4d64;padding:8px 12px}th{cursor:pointer}input{width:100%;max-width:360px;background:#1e2c44;color:#fff;border:1px solid #60718b;padding:10px;border-radius:8px}.bars>div{display:grid;grid-template-columns:130px 1fr 70px;gap:10px;align-items:center;margin:8px 0}.bar-track{height:18px;background:#263955;border-radius:9px}.bar{height:100%;background:#6bc3da;border-radius:9px}.timeline{border-left:2px solid #6bc3da;padding-left:25px}.timeline li{margin:15px 0}.timeline time{display:block;color:#aebdd1}.timeline p{margin:3px 0}a{color:#9edaff}</style></head><body><main><small>${escapeHtml(record.projectId)} · ${escapeHtml(record.kind)} · ${escapeHtml(record.createdAt)} · ${escapeHtml(record.id)}</small><h1>${escapeHtml(record.title)}</h1><label for="filter">กรองแถวในตาราง</label><br><input id="filter" type="search" placeholder="ค้นหาในตาราง">${record.sections.map(renderSection).join("")}<section class="card"><h2>แหล่งอ้างอิง</h2><ul>${record.sourceRefs.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul></section></main><script>const f=document.getElementById('filter');f.addEventListener('input',()=>document.querySelectorAll('tbody tr').forEach(r=>r.hidden=!r.textContent.toLowerCase().includes(f.value.toLowerCase())));document.querySelectorAll('th').forEach(h=>h.addEventListener('click',()=>{const b=h.closest('table').tBodies[0],i=[...h.parentElement.children].indexOf(h);[...b.rows].sort((a,c)=>a.cells[i].textContent.localeCompare(c.cells[i].textContent,undefined,{numeric:true})).forEach(r=>b.appendChild(r))}));</script></body></html>`;
 }
 export async function createReport(input: ReportInput) {
+  input = reportSchema.parse(input);
   await getProject(input.projectId);
   if (!input.title?.trim() || !Array.isArray(input.sections) || !input.sections.length || !Array.isArray(input.sourceRefs) || !input.sourceRefs.length) throw new Error("title, sections, sourceRefs required");
   if (input.sections.length > 40 || JSON.stringify(input).length > 250_000) throw new Error("report too large");

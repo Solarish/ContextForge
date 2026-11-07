@@ -6,6 +6,7 @@ import { listProjects, getProject } from "./projects.js";
 import { refreshIndex, refreshAll, loadIndex, searchSources } from "./indexer.js";
 import { contextBundle, contextRead, validateContext } from "./context.js";
 import { createReport, getReport, getReportHtml, getLegacyReportHtml, listReports } from "./report.js";
+import { ZodError } from "zod";
 
 const config = getConfig();
 const server = http.createServer(async (req,res) => {
@@ -29,7 +30,7 @@ const server = http.createServer(async (req,res) => {
     const meta=url.pathname.match(/^\/api\/reports\/([a-z0-9-]+)\/([a-f0-9-]{36}|legacy-[a-f0-9]{20})$/);
     if (meta && req.method === "GET") return json(res,200,await getReport(meta[1],meta[2]));
     return json(res,404,{error:"not found"});
-  } catch(e) { const message=e instanceof Error?e.message:String(e);return json(res,/unknown|invalid|missing|required|large|outside/.test(message)?400:500,{error:message}); }
+  } catch(e) { const message=e instanceof Error?e.message:String(e);const status=e instanceof ZodError||/unknown|invalid|missing|required|large|outside/.test(message)?400:(e as NodeJS.ErrnoException)?.code==="ENOENT"?404:500;return json(res,status,{error:message}); }
 });
 server.listen(config.port,config.host,()=>console.log(`contextforge listening on http://${config.host}:${config.port}`));
 function sameOrigin(req:http.IncomingMessage) { if(req.headers["sec-fetch-site"]==="cross-site")return false;const origin=req.headers.origin;if(!origin)return true;try{const o=new URL(origin);return o.protocol==="http:"&&o.host===req.headers.host&&(o.hostname==="127.0.0.1"||o.hostname==="localhost");}catch{return false;} }
