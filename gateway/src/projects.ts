@@ -10,7 +10,7 @@ function within(root: string, candidate: string): boolean {
 export async function listProjects(): Promise<ProjectConfig[]> {
   const file = getConfig().projectsFile;
   const raw = JSON.parse(await fs.readFile(file, "utf8"));
-  if (!Array.isArray(raw.projects) || raw.projects.length === 0) throw new Error("projects registry is empty");
+  if (!Array.isArray(raw.projects)) throw new Error("invalid projects registry");
   const seen = new Set<string>();
   return raw.projects.map((item: ProjectConfig) => {
     if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(item.id) || seen.has(item.id)) throw new Error("invalid or duplicate project id");

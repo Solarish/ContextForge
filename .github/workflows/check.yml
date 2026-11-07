@@ -14,8 +14,16 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: gateway/package-lock.json
-      - run: npm install
+      - run: npm ci
         working-directory: gateway
       - run: npm run check
         working-directory: gateway
+      - run: npm test
+        working-directory: gateway
+      - run: npm run build
+        working-directory: gateway
+      - name: Keep public workspace empty
+        run: |
+          test "$(git ls-files workspace | wc -l | tr -d ' ')" = "1"
+          node -e "const x=require('./workspace/projects.json'); if (!Array.isArray(x.projects) || x.projects.length) process.exit(1)"
 

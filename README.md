@@ -15,9 +15,9 @@ npm run build
 CONTEXTFORGE_PROJECTS_FILE=../workspace/projects.json node dist/server.js
 ```
 
-Open `http://127.0.0.1:8787/`. The HTTP service binds to loopback by default. To use MCP over stdio, run `node gateway/dist/mcp-server.js` after building. Docker Compose publishes on `127.0.0.1:8797` and mounts data as read-only.
+Open `http://127.0.0.1:8787/`. The HTTP service binds to loopback by default. To use MCP over stdio, run `node gateway/dist/mcp-server.js` after building. No container runtime is needed.
 
-`workspace/projects.json` is a sample registry. Set `CONTEXTFORGE_PROJECTS_FILE` to a local JSON registry for real projects and `CONTEXTFORGE_STATE_ROOT` to a persistent writable directory. Each entry has `id`, `title`, `reportRoot`, `wikiRoot`, optional `rulesPath`, and optional `legacyHtmlRoots`. Paths resolve relative to the registry file. Keep machine-specific absolute paths in an ignored local file outside this repository.
+`workspace/projects.json` is intentionally empty. `context_status` works before any project is registered; project context and reports require a configured project. Set `CONTEXTFORGE_PROJECTS_FILE` to a local JSON registry **outside this repository** for real projects and `CONTEXTFORGE_STATE_ROOT` to a persistent writable directory. Each entry has `id`, `title`, `reportRoot`, `wikiRoot`, optional `rulesPath`, and optional `legacyHtmlRoots`. Paths resolve relative to the registry file. Do not commit project documents, reports, indexes, credentials, or machine-specific paths to this public repository.
 
 ## MCP tools
 

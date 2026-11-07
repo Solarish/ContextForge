@@ -6,6 +6,22 @@ import path from "node:path";
 import { contextBundle, contextRead, validateContext } from "./context.js";
 import { refreshIndex, searchSources } from "./indexer.js";
 import { createReport, getReportHtml, listReports } from "./report.js";
+import { getProject, listProjects } from "./projects.js";
+
+test("empty public registry starts without project data", async () => {
+  const previous = process.env.CONTEXTFORGE_PROJECTS_FILE;
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "contextforge-empty-"));
+  try {
+    const registry = path.join(root, "projects.json");
+    await fs.writeFile(registry, '{"projects":[]}');
+    process.env.CONTEXTFORGE_PROJECTS_FILE = registry;
+    assert.deepEqual(await listProjects(), []);
+    await assert.rejects(getProject("midnightlook"), /unknown projectId/);
+  } finally {
+    if (previous === undefined) delete process.env.CONTEXTFORGE_PROJECTS_FILE; else process.env.CONTEXTFORGE_PROJECTS_FILE = previous;
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
 
 test("project isolation, compact context, incremental refresh, and immutable safe report", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "contextforge-test-"));
