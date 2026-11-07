@@ -13,7 +13,7 @@ export async function contextBundle(input: { projectId: string; topic: string; t
   const found = (await searchSources({ projectId: input.projectId, query: input.topic, limit: 8 })).results;
   const suggestedSources = found.map(s => cards.find(c => c.id === s.id)!).filter(Boolean).filter(c => !requiredSources.some(r => r.id === c.id));
   const compact = (c: typeof cards[number]) => ({ id:c.id, projectId:c.projectId, path:c.path, sourceType:c.sourceType, title:c.title.slice(0,100), headings:c.headings.slice(0,3), excerpt:c.excerpt.slice(0,90), fingerprint:c.fingerprint });
-  return { status: missingSources.length ? "blocked_missing_sources" : "ready", projectId: input.projectId, taskType: input.taskType, requiredSources: requiredSources.slice(0, 6).map(compact), suggestedSources: suggestedSources.slice(0, 5).map(compact), missingSources, indexGeneration: generation };
+  return { status: missingSources.length ? "blocked_missing_sources" : "ready", projectId: input.projectId, taskType: input.taskType, requiredSources: requiredSources.map(compact), suggestedSources: suggestedSources.slice(0, 5).map(compact), missingSources, indexGeneration: generation };
 }
 export async function validateContext(input: { projectId: string; taskType: string; loadedPaths: string[] }) {
   const rule = (await loadRules(input.projectId)).find(r => r.taskType === input.taskType);

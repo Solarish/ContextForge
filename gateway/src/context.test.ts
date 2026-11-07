@@ -18,7 +18,8 @@ test("project isolation, compact context, incremental refresh, and immutable saf
       await fs.writeFile(path.join(root, id, "report", "README.md"), `# ${id} unique\n## Facts\n${id} text\n`);
       await fs.writeFile(path.join(root, id, "wiki", "index.md"), `# ${id} wiki`);
     }
-    await fs.writeFile(path.join(root, "projects.json"), JSON.stringify({ projects: ["alpha", "beta"].map(id => ({ id, title: id, reportRoot: `${id}/report`, wikiRoot: `${id}/wiki` })) }));
+    const projects = { projects: ["alpha", "beta"].map(id => ({ id, title: id, reportRoot: `${id}/report`, wikiRoot: `${id}/wiki` })) };
+    await fs.writeFile(path.join(root, "projects.json"), JSON.stringify(projects));
     process.env.CONTEXTFORGE_PROJECTS_FILE = path.join(root, "projects.json");
     process.env.CONTEXTFORGE_STATE_ROOT = path.join(root, "state");
     assert.ok((await refreshIndex("alpha")).changed > 0);
@@ -42,6 +43,13 @@ test("project isolation, compact context, incremental refresh, and immutable saf
     assert.equal((await listReports("alpha")).reports[0].id, report.id);
     const concurrent = await Promise.all(Array.from({ length: 5 }, () => contextBundle({ projectId: "alpha", topic: "alpha", taskType: "general" })));
     assert.ok(concurrent.every(item => item.indexGeneration === bundle.indexGeneration));
+    const required = ["README.md", ...Array.from({ length: 6 }, (_, i) => `required-${i}.md`)];
+    for (const file of required.slice(1)) await fs.writeFile(path.join(root,"alpha","report",file),`# ${file}\n`);
+    await fs.writeFile(path.join(root,"alpha","rules.json"),JSON.stringify([{taskType:"architecture",required,wikiConcepts:[],optionalGlobs:[]}]));
+    (projects.projects[0] as {rulesPath?:string}).rulesPath = "alpha/rules.json";
+    await fs.writeFile(path.join(root,"projects.json"),JSON.stringify(projects));
+    await refreshIndex("alpha");
+    assert.equal((await contextBundle({projectId:"alpha",topic:"",taskType:"architecture"})).requiredSources.length,7);
     assert.equal((await contextBundle({ projectId: "alpha", topic: "", taskType: "unregistered" })).status, "blocked_unknown_task_type");
   } finally {
     if (previousProjects === undefined) delete process.env.CONTEXTFORGE_PROJECTS_FILE; else process.env.CONTEXTFORGE_PROJECTS_FILE = previousProjects;
