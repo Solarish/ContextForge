@@ -1,56 +1,29 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { listProjects } from "./projects.js";
+import { refreshAll, refreshIndex, searchSources } from "./indexer.js";
+import { contextBundle, contextRead, validateContext } from "./context.js";
+import { createReport, getReport, getReportHtml, listReports } from "./report.js";
 import { getConfig } from "./config.js";
-import { contextBundle, validateContext } from "./context.js";
-import { loadSources, refreshIndex, searchSources } from "./indexer.js";
-import { pathExists } from "./fs-utils.js";
 
-const config = getConfig();
-const server = new McpServer({ name: "contextforge", version: "0.1.0" });
-
-server.registerTool("context_status", { title: "ContextForge Status", inputSchema: {} }, async () => json({
-  reportRoot: config.reportRoot,
-  wikiRoot: config.wikiRoot,
-  mounts: {
-    report: await pathExists(config.reportRoot),
-    wiki: await pathExists(config.wikiRoot)
-  }
-}));
-
-server.registerTool("refresh_index", { title: "Refresh Index", inputSchema: {} }, async () => json(await refreshIndex()));
-
-server.registerTool("context_bundle", {
-  title: "Context Bundle",
-  inputSchema: {
-    topic: z.string(),
-    taskType: z.string()
-  }
-}, async input => json(await contextBundle(input)));
-
-server.registerTool("validate_context", {
-  title: "Validate Context",
-  inputSchema: {
-    taskType: z.string(),
-    loadedPaths: z.array(z.string())
-  }
-}, async input => json(await validateContext(input)));
-
-server.registerTool("search_sources", {
-  title: "Search Sources",
-  inputSchema: {
-    query: z.string()
-  }
-}, async input => json(await searchSources(input.query)));
-
-server.registerTool("list_sources", { title: "List Sources", inputSchema: {} }, async () => json(await loadSources()));
-
+const server=new McpServer({name:"contextforge",version:"0.2.0"});
+const result=(x:unknown)=>({content:[{type:"text" as const,text:JSON.stringify(x)}]});
+const reportUiMeta={ui:{resourceUri:"ui://contextforge/report-viewer"}};
+const projectId=z.string().min(1);
+server.registerTool("context_status",{title:"Context Status",inputSchema:{}},async()=>result({projects:(await listProjects()).map(p=>({id:p.id,title:p.title}))}));
+server.registerTool("project_list",{title:"List Projects",inputSchema:{}},async()=>result({projects:(await listProjects()).map(p=>({id:p.id,title:p.title}))}));
+server.registerTool("refresh_index",{title:"Refresh Index",inputSchema:{projectId:projectId.optional()}},async({projectId})=>result(projectId?await refreshIndex(projectId):{projects:await refreshAll()}));
+server.registerTool("context_find",{title:"Find Context",inputSchema:{projectId:projectId.optional(),query:z.string(),limit:z.number().int().min(1).max(20).optional(),acrossProjects:z.boolean().optional()}},async input=>result(await searchSources(input)));
+server.registerTool("context_read",{title:"Read Context Section",inputSchema:{projectId,sourceId:z.string(),heading:z.string().optional(),maxChars:z.number().int().min(500).max(16000).optional()}},async input=>result(await contextRead(input)));
+server.registerTool("context_bundle",{title:"Compact Context Bundle",inputSchema:{projectId,topic:z.string(),taskType:z.string()}},async input=>result(await contextBundle(input)));
+server.registerTool("validate_context",{title:"Validate Context",inputSchema:{projectId,taskType:z.string(),loadedPaths:z.array(z.string())}},async input=>result(await validateContext(input)));
+const section=z.object({heading:z.string(),text:z.string().optional(),columns:z.array(z.string()).optional(),rows:z.array(z.array(z.union([z.string(),z.number(),z.null()]))).optional(),chart:z.object({labels:z.array(z.string()),values:z.array(z.number())}).optional(),events:z.array(z.object({at:z.string(),label:z.string(),detail:z.string().optional()})).optional()});
+server.registerTool("report_create",{title:"Create HTML Report",_meta:reportUiMeta,inputSchema:{projectId,title:z.string(),kind:z.enum(["summary","table","chart","timeline"]),sections:z.array(section),sourceRefs:z.array(z.string())}},async input=>{const created=await createReport(input);return {...result(created),structuredContent:{report:{...input,...created},url:created.url}};});
+server.registerTool("report_list",{title:"List Reports",inputSchema:{projectId,query:z.string().optional(),limit:z.number().int().min(1).max(100).optional()}},async input=>result(await listReports(input.projectId,input.query,input.limit)));
+server.registerTool("report_get",{title:"Get Report Metadata",_meta:reportUiMeta,inputSchema:{projectId,id:z.string()}},async input=>{const r=await getReport(input.projectId,input.id);const url=`${getConfig().publicBaseUrl}/reports/${r.projectId}/${r.id}`;return {...result({id:r.id,projectId:r.projectId,title:r.title,kind:r.kind,createdAt:r.createdAt,sourceRefs:r.sourceRefs,sections:r.sections.map((s:{heading:string})=>s.heading),url,resourceUri:`ui://contextforge/reports/${r.projectId}/${r.id}`}),structuredContent:{report:r,url}};});
+server.registerResource("report-viewer","ui://contextforge/report-viewer",{title:"ContextForge Report Viewer",mimeType:"text/html;profile=mcp-app"},async uri=>{const dir=getConfig().publicDir;const [template,script]=await Promise.all([fs.readFile(path.join(dir,"report-viewer.html"),"utf8"),fs.readFile(path.join(dir,"report-app.js"),"utf8")]);return {contents:[{uri:uri.href,mimeType:"text/html;profile=mcp-app",text:template.replace("/*SCRIPT*/",script.replace(/<\/script/gi,"<\\/script"))}]};});
+server.registerResource("report-html",new ResourceTemplate("ui://contextforge/reports/{projectId}/{id}",{list:undefined}),{title:"ContextForge HTML Report",mimeType:"text/html;profile=mcp-app"},async(uri,{projectId,id})=>({contents:[{uri:uri.href,mimeType:"text/html;profile=mcp-app",text:await getReportHtml(String(projectId),String(id))}]}));
 await server.connect(new StdioServerTransport());
-
-function json(value: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
-    structuredContent: Array.isArray(value) ? { results: value } : value as Record<string, unknown>
-  };
-}
-

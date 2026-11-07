@@ -4,4 +4,6 @@ dist/
 .env.local
 .DS_Store
 *.log
+workspace/.state/
 
+gateway/public/report-app.js

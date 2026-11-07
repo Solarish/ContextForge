@@ -1,0 +1,5 @@
+{
+  "projects": [
+    {"id":"example","title":"Example project","reportRoot":"./report","wikiRoot":"./wiki","rulesPath":"./report/registry/context-rules.json"}
+  ]
+}

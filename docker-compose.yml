@@ -5,12 +5,15 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8797:8787"
+      - "127.0.0.1:8797:8787"
     environment:
-      REPORT_ROOT: /data/report
-      WIKI_ROOT: /data/wiki
+      CONTEXTFORGE_PROJECTS_FILE: /app/workspace/projects.json
+      CONTEXTFORGE_STATE_ROOT: /data/state
+      CONTEXTFORGE_PUBLIC_BASE_URL: http://127.0.0.1:8797
       PORT: "8787"
+      HOST: "0.0.0.0"
     volumes:
-      - ./workspace/report:/data/report
-      - ./workspace/wiki:/data/wiki:ro
+      - ./workspace/report:/app/workspace/report:ro
+      - ./workspace/wiki:/app/workspace/wiki:ro
+      - ./workspace/.state:/data/state
     restart: "no"

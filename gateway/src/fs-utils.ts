@@ -15,6 +15,10 @@ export function stamp(agent = "codex", now = new Date()): string {
   return `[Updated by: ${agent} | Time: ${bangkok} +0700]`;
 }
 
+export function slugify(input: string): string {
+  return input.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+}
+
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
